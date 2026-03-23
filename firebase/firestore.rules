@@ -1,0 +1,169 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isCurrentAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isChildUser() {
+      return isSignedIn() &&
+        request.auth.token.role == 'child' &&
+        request.auth.token.childId is string &&
+        request.auth.token.childId.size() > 0;
+    }
+
+    function currentChildId() {
+      return request.auth.token.childId;
+    }
+
+    function isOwnAdminDoc(adminId) {
+      return isCurrentAdmin() && request.auth.uid == adminId;
+    }
+
+    function isOwnChildDoc(childId) {
+      return isChildUser() && currentChildId() == childId;
+    }
+
+    function childBelongsToAdmin(data) {
+      return data.adminId == request.auth.uid;
+    }
+
+    function childBelongsToCurrentAdminById(childId) {
+      return isCurrentAdmin() &&
+        exists(/databases/$(database)/documents/children/$(childId)) &&
+        get(/databases/$(database)/documents/children/$(childId)).data.adminId == request.auth.uid;
+    }
+
+    function taskBelongsToAdmin(data) {
+      return data.createdBy == request.auth.uid;
+    }
+
+    function assignmentBelongsToAdmin(data) {
+      return data.assignedBy == request.auth.uid;
+    }
+
+    function assignmentBelongsToCurrentChild(data) {
+      return isOwnChildDoc(data.childId);
+    }
+
+    function assignmentBelongsToCurrentChildById(assignmentId) {
+      return isChildUser() &&
+        exists(/databases/$(database)/documents/assignments/$(assignmentId)) &&
+        get(/databases/$(database)/documents/assignments/$(assignmentId)).data.childId == currentChildId();
+    }
+
+    function childCanSubmitAssignment() {
+      return assignmentBelongsToCurrentChild(resource.data) &&
+        resource.data.status in ['assigned', 'rejected'] &&
+        request.resource.data.status == 'submitted' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'submittedAt',
+          'updatedAt',
+        ]);
+    }
+
+    function childCanMarkNotificationRead() {
+      return isOwnChildDoc(resource.data.childId) &&
+        request.resource.data.childId == resource.data.childId &&
+        request.resource.data.isRead == true &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isRead',
+        ]);
+    }
+
+    match /admins/{adminId} {
+      allow create: if isSignedIn() && request.auth.uid == adminId;
+      allow read, update: if isOwnAdminDoc(adminId);
+      allow delete: if false;
+    }
+
+    match /children/{childId} {
+      allow read: if isCurrentAdmin() && childBelongsToAdmin(resource.data);
+      allow read: if isOwnChildDoc(childId);
+      allow create: if isCurrentAdmin() && childBelongsToAdmin(request.resource.data);
+      allow update: if isCurrentAdmin() && childBelongsToAdmin(resource.data);
+      allow delete: if false;
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isCurrentAdmin() && taskBelongsToAdmin(resource.data);
+      allow read: if isChildUser() && resource.data.templateStatus == 'active';
+      allow create: if isCurrentAdmin() && taskBelongsToAdmin(request.resource.data);
+      allow update: if isCurrentAdmin() && taskBelongsToAdmin(resource.data);
+      allow delete: if false;
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if isCurrentAdmin() && assignmentBelongsToAdmin(resource.data);
+      allow read: if assignmentBelongsToCurrentChild(resource.data);
+      allow create: if isCurrentAdmin() && assignmentBelongsToAdmin(request.resource.data);
+      allow update: if isCurrentAdmin() && assignmentBelongsToAdmin(resource.data);
+      allow update: if childCanSubmitAssignment();
+      allow delete: if false;
+    }
+
+    match /announcements/{announcementId} {
+      allow read, create, update: if isCurrentAdmin();
+      allow read: if isChildUser();
+      allow delete: if false;
+    }
+
+    match /badges/{badgeId} {
+      allow read, create, update: if isCurrentAdmin();
+      allow read: if isChildUser();
+      allow delete: if false;
+    }
+
+    match /child_badges/{childBadgeId} {
+      allow read: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow create: if isCurrentAdmin() && childBelongsToCurrentAdminById(request.resource.data.childId);
+      allow update: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow read: if isOwnChildDoc(resource.data.childId);
+      allow delete: if false;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow create: if isCurrentAdmin() && childBelongsToCurrentAdminById(request.resource.data.childId);
+      allow update: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow read: if assignmentBelongsToCurrentChildById(resource.data.assignmentId);
+      allow delete: if false;
+    }
+
+    match /points_ledger/{entryId} {
+      allow read: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow create: if isCurrentAdmin() && childBelongsToCurrentAdminById(request.resource.data.childId);
+      allow update: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow read: if isOwnChildDoc(resource.data.childId);
+      allow delete: if false;
+    }
+
+    match /submissions/{submissionId} {
+      allow read: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow read: if isOwnChildDoc(resource.data.childId);
+      allow create: if isChildUser() &&
+        request.resource.data.childId == currentChildId() &&
+        assignmentBelongsToCurrentChildById(request.resource.data.assignmentId);
+      allow update, delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow create: if isCurrentAdmin() && childBelongsToCurrentAdminById(request.resource.data.childId);
+      allow update: if isCurrentAdmin() && childBelongsToCurrentAdminById(resource.data.childId);
+      allow read: if isOwnChildDoc(resource.data.childId);
+      allow update: if childCanMarkNotificationRead();
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,13 @@
+.git
+.github
+.vscode
+.dart_tool
+**/.dart_tool
+**/build
+**/.idea
+**/*.iml
+**/__pycache__
+**/*.pyc
+**/node_modules
+aws_cred
+services/s3_signer_api/*.json

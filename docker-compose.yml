@@ -1,0 +1,25 @@
+services:
+  s3_signer_api:
+    build:
+      context: ./services/s3_signer_api
+    env_file:
+      - ./services/s3_signer_api/.env
+    volumes:
+      - ./services/s3_signer_api/vanavil-2c565-firebase-adminsdk-fbsvc-9773c8b670.json:/run/secrets/firebase-service-account.json:ro
+    environment:
+      FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-service-account.json
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  admin_web:
+    build:
+      context: .
+      dockerfile: apps/admin_web/Dockerfile
+      args:
+        VANAVIL_S3_API_BASE_URL: ${VANAVIL_S3_API_BASE_URL:-http://127.0.0.1:8000}
+    depends_on:
+      - s3_signer_api
+    ports:
+      - "8080:80"
+    restart: unless-stopped

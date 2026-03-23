@@ -1,0 +1,53 @@
+# Repository publishing policy
+
+# Exclude the child mobile app from the GitHub repo
+apps/child_app/
+functions/
+
+# Secrets and local credentials
+.env
+*.env
+*.local
+*.secret
+*.pem
+*.key
+*.p12
+*.pfx
+aws_cred
+aws_cred/
+services/s3_signer_api/*firebase-adminsdk*.json
+functions/*firebase-adminsdk*.json
+
+# Python virtual environments and caches
+.venv/
+venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+
+# Flutter, Dart, and generated build output
+.dart_tool/
+**/.dart_tool/
+.flutter-plugins-dependencies
+.pub/
+.pub-cache/
+build/
+**/build/
+coverage/
+
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# IDE and OS files
+.idea/
+.vscode/
+.claude/
+*.iml
+.metadata
+.DS_Store
+Thumbs.db
+*.log
+
+# Docker local overrides
+docker-compose.override.yml
