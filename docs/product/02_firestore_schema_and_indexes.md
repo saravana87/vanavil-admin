@@ -22,7 +22,7 @@ Fields:
 
 - `email`: string
 - `name`: string
-- `role`: string = `admin`
+- `role`: string = `admin` or `super_admin`
 - `status`: string = `active` or `disabled`
 - `createdAt`: timestamp
 - `updatedAt`: timestamp

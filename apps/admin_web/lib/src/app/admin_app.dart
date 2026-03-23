@@ -6,6 +6,7 @@ import 'package:vanavil_firebase/vanavil_firebase.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
 import '../../firebase_options.dart';
+import 'admin_access.dart';
 import '../features/auth/admin_login_screen.dart';
 import '../features/auth/admin_onboarding_screen.dart';
 import '../features/dashboard/admin_dashboard_screen.dart';
@@ -97,7 +98,91 @@ class _AdminAuthGate extends StatelessWidget {
             }
 
             if (adminSnapshot.hasData && adminSnapshot.data!.exists) {
-              return const AdminDashboardScreen(bootstrap: bootstrap);
+              final access = AdminAccess.fromSnapshot(
+                user: user,
+                snapshot: adminSnapshot.data!,
+              );
+
+              if (isReservedSuperAdminEmail(user.email ?? '') &&
+                  !access.isSuperAdmin) {
+                return Scaffold(
+                  body: Center(
+                    child: FutureBuilder<void>(
+                      future: FirebaseFirestore.instance
+                          .collection(FirestoreCollections.admins)
+                          .doc(user.uid)
+                          .update({
+                            'role': 'super_admin',
+                            'updatedAt': FieldValue.serverTimestamp(),
+                          }),
+                      builder: (context, promoteSnapshot) {
+                        if (promoteSnapshot.hasError) {
+                          return ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 480),
+                            child: VanavilSectionCard(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Unable to promote super admin access',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.headlineMedium,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(promoteSnapshot.error.toString()),
+                                  const SizedBox(height: 20),
+                                  OutlinedButton(
+                                    onPressed: () =>
+                                        FirebaseAuth.instance.signOut(),
+                                    child: const Text('Sign out'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        return const CircularProgressIndicator();
+                      },
+                    ),
+                  ),
+                );
+              }
+
+              if (!access.isActive) {
+                return Scaffold(
+                  body: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: VanavilSectionCard(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Admin access disabled',
+                              style: Theme.of(context).textTheme.headlineMedium,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'This admin account is not active. Contact a super admin to restore access.',
+                            ),
+                            const SizedBox(height: 20),
+                            OutlinedButton(
+                              onPressed: () => FirebaseAuth.instance.signOut(),
+                              child: const Text('Sign out'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              return AdminDashboardScreen(bootstrap: bootstrap, access: access);
             }
 
             return AdminOnboardingScreen(bootstrap: bootstrap, user: user);

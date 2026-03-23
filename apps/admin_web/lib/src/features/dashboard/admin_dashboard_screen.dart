@@ -5,14 +5,20 @@ import 'package:vanavil_core/vanavil_core.dart';
 import 'package:vanavil_firebase/vanavil_firebase.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
+import '../../app/admin_access.dart';
 import '../children/manage_children_screen.dart';
 import '../reviews/manage_reviews_screen.dart';
 import '../tasks/manage_tasks_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({super.key, required this.bootstrap});
+  const AdminDashboardScreen({
+    super.key,
+    required this.bootstrap,
+    required this.access,
+  });
 
   final VanavilFirebaseBootstrap bootstrap;
+  final AdminAccess access;
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -68,6 +74,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
+                        widget.access.roleLabel,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
                         widget.bootstrap.statusLabel,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
@@ -118,6 +129,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _AdminSection.dashboard => _DashboardOverview(
                   key: const ValueKey(_AdminSection.dashboard),
                   bootstrap: widget.bootstrap,
+                  access: widget.access,
                   onOpenChildren: () {
                     setState(() {
                       _selectedSection = _AdminSection.children;
@@ -134,14 +146,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     });
                   },
                 ),
-                _AdminSection.children => const ManageChildrenScreen(
-                  key: ValueKey(_AdminSection.children),
+                _AdminSection.children => ManageChildrenScreen(
+                  key: const ValueKey(_AdminSection.children),
+                  access: widget.access,
                 ),
-                _AdminSection.reviews => const ManageReviewsScreen(
-                  key: ValueKey(_AdminSection.reviews),
+                _AdminSection.reviews => ManageReviewsScreen(
+                  key: const ValueKey(_AdminSection.reviews),
+                  access: widget.access,
                 ),
-                _AdminSection.tasks => const ManageTasksScreen(
-                  key: ValueKey(_AdminSection.tasks),
+                _AdminSection.tasks => ManageTasksScreen(
+                  key: const ValueKey(_AdminSection.tasks),
+                  access: widget.access,
                 ),
               },
             ),
@@ -167,12 +182,14 @@ class _DashboardOverview extends StatelessWidget {
   const _DashboardOverview({
     super.key,
     required this.bootstrap,
+    required this.access,
     required this.onOpenChildren,
     required this.onOpenReviews,
     required this.onOpenTasks,
   });
 
   final VanavilFirebaseBootstrap bootstrap;
+  final AdminAccess access;
   final VoidCallback onOpenChildren;
   final VoidCallback onOpenReviews;
   final VoidCallback onOpenTasks;
@@ -191,10 +208,22 @@ class _DashboardOverview extends StatelessWidget {
         .where('adminId', isEqualTo: currentUserId)
         .snapshots();
 
+    final scopedChildrenStream = access.isSuperAdmin
+        ? FirebaseFirestore.instance
+              .collection(FirestoreCollections.children)
+              .snapshots()
+        : childrenStream;
+
     final adminAssignmentsStream = FirebaseFirestore.instance
         .collection(FirestoreCollections.assignments)
         .where('assignedBy', isEqualTo: currentUserId)
         .snapshots();
+
+    final scopedAssignmentsStream = access.isSuperAdmin
+        ? FirebaseFirestore.instance
+              .collection(FirestoreCollections.assignments)
+              .snapshots()
+        : adminAssignmentsStream;
 
     final announcementsStream = FirebaseFirestore.instance
         .collection(FirestoreCollections.announcements)
@@ -203,7 +232,7 @@ class _DashboardOverview extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(28),
       child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: childrenStream,
+        stream: scopedChildrenStream,
         builder: (context, childrenSnapshot) {
           if (childrenSnapshot.hasError) {
             return _DashboardErrorState(
@@ -227,7 +256,7 @@ class _DashboardOverview extends StatelessWidget {
           );
 
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: adminAssignmentsStream,
+            stream: scopedAssignmentsStream,
             builder: (context, pendingSnapshot) {
               if (pendingSnapshot.hasError) {
                 return _DashboardErrorState(

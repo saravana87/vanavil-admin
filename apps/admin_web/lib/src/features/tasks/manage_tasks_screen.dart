@@ -10,12 +10,15 @@ import 'package:vanavil_core/vanavil_core.dart';
 import 'package:vanavil_firebase/vanavil_firebase.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
+import '../../app/admin_access.dart';
 import 'task_attachment_picker.dart';
 
 const String _s3ApiBaseUrl = String.fromEnvironment('VANAVIL_S3_API_BASE_URL');
 
 class ManageTasksScreen extends StatefulWidget {
-  const ManageTasksScreen({super.key});
+  const ManageTasksScreen({super.key, required this.access});
+
+  final AdminAccess access;
 
   @override
   State<ManageTasksScreen> createState() => _ManageTasksScreenState();
@@ -27,27 +30,38 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    final currentUserId = currentUser?.uid;
-
-    if (currentUserId == null) {
+    if (currentUser == null) {
       return const Center(child: Text('Sign in again to continue.'));
     }
 
-    final tasksStream = FirebaseFirestore.instance
-        .collection(FirestoreCollections.tasks)
-        .where('createdBy', isEqualTo: currentUserId)
-        .snapshots();
+    Query<Map<String, dynamic>> tasksQuery = FirebaseFirestore.instance
+        .collection(FirestoreCollections.tasks);
+    if (!widget.access.isSuperAdmin) {
+      tasksQuery = tasksQuery.where('createdBy', isEqualTo: currentUser.uid);
+    }
 
-    final assignmentsStream = FirebaseFirestore.instance
-        .collection(FirestoreCollections.assignments)
-        .where('assignedBy', isEqualTo: currentUserId)
-        .snapshots();
+    Query<Map<String, dynamic>> assignmentsQuery = FirebaseFirestore.instance
+        .collection(FirestoreCollections.assignments);
+    if (!widget.access.isSuperAdmin) {
+      assignmentsQuery = assignmentsQuery.where(
+        'assignedBy',
+        isEqualTo: currentUser.uid,
+      );
+    }
 
-    final childrenStream = FirebaseFirestore.instance
+    Query<Map<String, dynamic>> childrenQuery = FirebaseFirestore.instance
         .collection(FirestoreCollections.children)
-        .where('adminId', isEqualTo: currentUserId)
-        .where('status', isEqualTo: 'active')
-        .snapshots();
+        .where('status', isEqualTo: 'active');
+    if (!widget.access.isSuperAdmin) {
+      childrenQuery = childrenQuery.where(
+        'adminId',
+        isEqualTo: currentUser.uid,
+      );
+    }
+
+    final tasksStream = tasksQuery.snapshots();
+    final assignmentsStream = assignmentsQuery.snapshots();
+    final childrenStream = childrenQuery.snapshots();
 
     return Padding(
       padding: const EdgeInsets.all(28),

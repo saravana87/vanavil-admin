@@ -9,10 +9,14 @@ import 'package:vanavil_core/vanavil_core.dart';
 import 'package:vanavil_firebase/vanavil_firebase.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
+import '../../app/admin_access.dart';
+
 const String _s3ApiBaseUrl = String.fromEnvironment('VANAVIL_S3_API_BASE_URL');
 
 class ManageReviewsScreen extends StatefulWidget {
-  const ManageReviewsScreen({super.key});
+  const ManageReviewsScreen({super.key, required this.access});
+
+  final AdminAccess access;
 
   @override
   State<ManageReviewsScreen> createState() => _ManageReviewsScreenState();
@@ -24,16 +28,20 @@ class _ManageReviewsScreenState extends State<ManageReviewsScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    final currentUserId = currentUser?.uid;
-
-    if (currentUserId == null) {
+    if (currentUser == null) {
       return const Center(child: Text('Sign in again to continue.'));
     }
 
-    final assignmentsStream = FirebaseFirestore.instance
-        .collection(FirestoreCollections.assignments)
-        .where('assignedBy', isEqualTo: currentUserId)
-        .snapshots();
+    Query<Map<String, dynamic>> assignmentsQuery = FirebaseFirestore.instance
+        .collection(FirestoreCollections.assignments);
+    if (!widget.access.isSuperAdmin) {
+      assignmentsQuery = assignmentsQuery.where(
+        'assignedBy',
+        isEqualTo: currentUser.uid,
+      );
+    }
+
+    final assignmentsStream = assignmentsQuery.snapshots();
 
     return Padding(
       padding: const EdgeInsets.all(28),
@@ -226,6 +234,7 @@ class _ManageReviewsScreenState extends State<ManageReviewsScreen> {
                       child: _ReviewDetailsPane(
                         key: ValueKey(selectedAssignment.id),
                         assignment: selectedAssignment,
+                        access: widget.access,
                       ),
                     ),
                   ],
@@ -240,9 +249,14 @@ class _ManageReviewsScreenState extends State<ManageReviewsScreen> {
 }
 
 class _ReviewDetailsPane extends StatefulWidget {
-  const _ReviewDetailsPane({super.key, required this.assignment});
+  const _ReviewDetailsPane({
+    super.key,
+    required this.assignment,
+    required this.access,
+  });
 
   final _PendingReviewAssignment assignment;
+  final AdminAccess access;
 
   @override
   State<_ReviewDetailsPane> createState() => _ReviewDetailsPaneState();
@@ -626,7 +640,7 @@ class _ReviewDetailsPaneState extends State<_ReviewDetailsPane> {
         final data = assignmentSnapshot.data() ?? <String, dynamic>{};
         final latestStatus = _readString(data['status'], fallback: 'assigned');
         final latestAssignedBy = _readString(data['assignedBy']);
-        if (latestAssignedBy != adminId) {
+        if (!widget.access.isSuperAdmin && latestAssignedBy != adminId) {
           throw Exception('You can only review assignments you created.');
         }
         if (latestStatus != 'submitted') {

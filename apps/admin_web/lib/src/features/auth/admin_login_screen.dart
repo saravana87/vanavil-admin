@@ -28,7 +28,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     super.dispose();
   }
 
-  Future<void> _submit({required bool createAccount}) async {
+  Future<void> _submit() async {
     final draft = AdminLoginDraft(
       email: _emailController.text.trim(),
       password: _passwordController.text,
@@ -45,34 +45,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     });
 
     try {
-      if (createAccount) {
-        final credential = await FirebaseAuth.instance
-            .createUserWithEmailAndPassword(
-              email: draft.email,
-              password: draft.password,
-            );
-
-        await FirebaseFirestore.instance
-            .collection(FirestoreCollections.admins)
-            .doc(credential.user!.uid)
-            .set({
-              'email': draft.email,
-              'name': draft.email.split('@').first.replaceAll('.', ' '),
-              'role': 'admin',
-              'status': 'active',
-              'createdAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
-
-        setState(() {
-          _message = 'Admin account created successfully.';
-        });
-      } else {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: draft.email,
-          password: draft.password,
-        );
-      }
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: draft.email,
+        password: draft.password,
+      );
     } on FirebaseAuthException catch (error) {
       setState(() {
         _message = error.message ?? error.code;
@@ -169,7 +145,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Use your admin email and password. If this is the first admin account, create it here and the app will also create the matching admins document automatically.',
+                            'Use your admin email and password to open the admin workspace. The owner account is promoted to super admin automatically after sign-in.',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           const SizedBox(height: 24),
@@ -210,9 +186,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: _isSubmitting
-                                  ? null
-                                  : () => _submit(createAccount: false),
+                              onPressed: _isSubmitting ? null : _submit,
                               style: FilledButton.styleFrom(
                                 backgroundColor: VanavilPalette.sky,
                                 padding: const EdgeInsets.symmetric(
@@ -222,16 +196,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                               child: Text(
                                 _isSubmitting ? 'Checking...' : 'Sign in',
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: _isSubmitting
-                                  ? null
-                                  : () => _submit(createAccount: true),
-                              child: const Text('Create first admin account'),
                             ),
                           ),
                         ],

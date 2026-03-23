@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:vanavil_firebase/vanavil_firebase.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
+import '../../app/admin_access.dart';
+
 class AdminOnboardingScreen extends StatefulWidget {
   const AdminOnboardingScreen({
     super.key,
@@ -22,6 +24,21 @@ class _AdminOnboardingScreenState extends State<AdminOnboardingScreen> {
   bool _isSaving = false;
   String? _message;
 
+  bool get _isReservedSuperAdmin =>
+      isReservedSuperAdminEmail(widget.user.email ?? '');
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isReservedSuperAdmin) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _createAdminDocument();
+        }
+      });
+    }
+  }
+
   Future<void> _createAdminDocument() async {
     setState(() {
       _isSaving = true;
@@ -34,13 +51,15 @@ class _AdminOnboardingScreenState extends State<AdminOnboardingScreen> {
         : 'Admin User';
 
     try {
+      final role = _isReservedSuperAdmin ? 'super_admin' : 'admin';
+
       await FirebaseFirestore.instance
           .collection(FirestoreCollections.admins)
           .doc(widget.user.uid)
           .set({
             'email': email,
             'name': inferredName,
-            'role': 'admin',
+            'role': role,
             'status': 'active',
             'createdAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
@@ -56,7 +75,9 @@ class _AdminOnboardingScreenState extends State<AdminOnboardingScreen> {
     if (!mounted) return;
     setState(() {
       _isSaving = false;
-      _message = 'Admin profile created. Reloading access...';
+      _message = _isReservedSuperAdmin
+          ? 'Super admin profile created. Reloading access...'
+          : 'Admin profile created. Reloading access...';
     });
   }
 
@@ -96,8 +117,10 @@ class _AdminOnboardingScreenState extends State<AdminOnboardingScreen> {
                       children: [
                         Text(widget.bootstrap.statusLabel),
                         const SizedBox(height: 10),
-                        const Text(
-                          'This step creates admins/{uid} in Firestore so the app recognizes this user as an admin.',
+                        Text(
+                          _isReservedSuperAdmin
+                              ? 'This account is reserved as the platform super admin. The app will create admins/{uid} automatically.'
+                              : 'This step creates admins/{uid} in Firestore so the app recognizes this user as an admin.',
                         ),
                       ],
                     ),
@@ -109,15 +132,18 @@ class _AdminOnboardingScreenState extends State<AdminOnboardingScreen> {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: _isSaving ? null : _createAdminDocument,
-                          child: Text(
-                            _isSaving ? 'Creating...' : 'Create admin profile',
+                      if (!_isReservedSuperAdmin)
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: _isSaving ? null : _createAdminDocument,
+                            child: Text(
+                              _isSaving
+                                  ? 'Activating...'
+                                  : 'Activate admin access',
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
+                      if (!_isReservedSuperAdmin) const SizedBox(width: 12),
                       OutlinedButton(
                         onPressed: _isSaving
                             ? null

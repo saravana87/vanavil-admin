@@ -10,6 +10,15 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    function isSuperAdmin() {
+      return isCurrentAdmin() &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role in [
+          'super_admin',
+          'super-admin',
+          'superadmin',
+        ];
+    }
+
     function isChildUser() {
       return isSignedIn() &&
         request.auth.token.role == 'child' &&
@@ -25,6 +34,10 @@ service cloud.firestore {
       return isCurrentAdmin() && request.auth.uid == adminId;
     }
 
+    function isOwnAdminPath(adminId) {
+      return isSignedIn() && request.auth.uid == adminId;
+    }
+
     function isOwnChildDoc(childId) {
       return isChildUser() && currentChildId() == childId;
     }
@@ -36,7 +49,22 @@ service cloud.firestore {
     function childBelongsToCurrentAdminById(childId) {
       return isCurrentAdmin() &&
         exists(/databases/$(database)/documents/children/$(childId)) &&
-        get(/databases/$(database)/documents/children/$(childId)).data.adminId == request.auth.uid;
+        (
+          isSuperAdmin() ||
+          get(/databases/$(database)/documents/children/$(childId)).data.adminId == request.auth.uid
+        );
+    }
+
+    function canAccessChild(data) {
+      return isCurrentAdmin() && (isSuperAdmin() || childBelongsToAdmin(data));
+    }
+
+    function canAccessTask(data) {
+      return isCurrentAdmin() && (isSuperAdmin() || taskBelongsToAdmin(data));
+    }
+
+    function canAccessAssignment(data) {
+      return isCurrentAdmin() && (isSuperAdmin() || assignmentBelongsToAdmin(data));
     }
 
     function taskBelongsToAdmin(data) {
@@ -79,31 +107,32 @@ service cloud.firestore {
 
     match /admins/{adminId} {
       allow create: if isSignedIn() && request.auth.uid == adminId;
-      allow read, update: if isOwnAdminDoc(adminId);
+      allow read: if isOwnAdminPath(adminId) || isSuperAdmin();
+      allow update: if isOwnAdminDoc(adminId) || isSuperAdmin();
       allow delete: if false;
     }
 
     match /children/{childId} {
-      allow read: if isCurrentAdmin() && childBelongsToAdmin(resource.data);
+      allow read: if canAccessChild(resource.data);
       allow read: if isOwnChildDoc(childId);
-      allow create: if isCurrentAdmin() && childBelongsToAdmin(request.resource.data);
-      allow update: if isCurrentAdmin() && childBelongsToAdmin(resource.data);
+      allow create: if canAccessChild(request.resource.data);
+      allow update: if canAccessChild(resource.data);
       allow delete: if false;
     }
 
     match /tasks/{taskId} {
-      allow read: if isCurrentAdmin() && taskBelongsToAdmin(resource.data);
+      allow read: if canAccessTask(resource.data);
       allow read: if isChildUser() && resource.data.templateStatus == 'active';
-      allow create: if isCurrentAdmin() && taskBelongsToAdmin(request.resource.data);
-      allow update: if isCurrentAdmin() && taskBelongsToAdmin(resource.data);
+      allow create: if canAccessTask(request.resource.data);
+      allow update: if canAccessTask(resource.data);
       allow delete: if false;
     }
 
     match /assignments/{assignmentId} {
-      allow read: if isCurrentAdmin() && assignmentBelongsToAdmin(resource.data);
+      allow read: if canAccessAssignment(resource.data);
       allow read: if assignmentBelongsToCurrentChild(resource.data);
-      allow create: if isCurrentAdmin() && assignmentBelongsToAdmin(request.resource.data);
-      allow update: if isCurrentAdmin() && assignmentBelongsToAdmin(resource.data);
+      allow create: if canAccessAssignment(request.resource.data);
+      allow update: if canAccessAssignment(resource.data);
       allow update: if childCanSubmitAssignment();
       allow delete: if false;
     }

@@ -7,12 +7,16 @@ import 'package:http/http.dart' as http;
 import 'package:vanavil_firebase/vanavil_firebase.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
+import '../../app/admin_access.dart';
+
 const String _adminApiBaseUrl = String.fromEnvironment(
   'VANAVIL_S3_API_BASE_URL',
 );
 
 class ManageChildrenScreen extends StatefulWidget {
-  const ManageChildrenScreen({super.key});
+  const ManageChildrenScreen({super.key, required this.access});
+
+  final AdminAccess access;
 
   @override
   State<ManageChildrenScreen> createState() => _ManageChildrenScreenState();
@@ -24,16 +28,20 @@ class _ManageChildrenScreenState extends State<ManageChildrenScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    final currentUserId = currentUser?.uid;
-
-    if (currentUserId == null) {
+    if (currentUser == null) {
       return const Center(child: Text('Sign in again to continue.'));
     }
 
-    final childrenStream = FirebaseFirestore.instance
-        .collection(FirestoreCollections.children)
-        .where('adminId', isEqualTo: currentUserId)
-        .snapshots();
+    Query<Map<String, dynamic>> childrenQuery = FirebaseFirestore.instance
+        .collection(FirestoreCollections.children);
+    if (!widget.access.isSuperAdmin) {
+      childrenQuery = childrenQuery.where(
+        'adminId',
+        isEqualTo: currentUser.uid,
+      );
+    }
+
+    final childrenStream = childrenQuery.snapshots();
 
     return Padding(
       padding: const EdgeInsets.all(28),
