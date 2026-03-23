@@ -924,7 +924,7 @@ Uri _buildS3ApiUri(String path) {
   final configuredBaseUrl = _s3ApiBaseUrl.trim();
   if (configuredBaseUrl.isEmpty) {
     throw Exception(
-      'VANAVIL_S3_API_BASE_URL is not configured. Start the Python API and pass --dart-define=VANAVIL_S3_API_BASE_URL=http://127.0.0.1:8000.',
+      'VANAVIL_S3_API_BASE_URL is not configured. Start the review API and pass --dart-define=VANAVIL_S3_API_BASE_URL=http://127.0.0.1:8000.',
     );
   }
 

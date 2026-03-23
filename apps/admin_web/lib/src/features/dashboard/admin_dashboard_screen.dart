@@ -337,7 +337,7 @@ class _DashboardOverview extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  'Live Firebase data for child activity, review queue, and announcements.',
+                                  'Live activity for child progress, review queue, and announcements.',
                                   style: Theme.of(context).textTheme.bodyMedium,
                                 ),
                               ],
