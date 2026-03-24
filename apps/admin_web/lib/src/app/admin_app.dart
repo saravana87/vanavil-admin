@@ -49,7 +49,7 @@ class _AdminAuthGate extends StatelessWidget {
 
         final user = snapshot.data;
         if (user == null) {
-          return const AdminLoginScreen(bootstrap: bootstrap);
+          return const AdminLoginScreen();
         }
 
         return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -182,7 +182,7 @@ class _AdminAuthGate extends StatelessWidget {
                 );
               }
 
-              return AdminDashboardScreen(bootstrap: bootstrap, access: access);
+              return AdminDashboardScreen(access: access);
             }
 
             return AdminOnboardingScreen(bootstrap: bootstrap, user: user);

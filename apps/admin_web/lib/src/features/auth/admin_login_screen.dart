@@ -1,14 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:vanavil_core/vanavil_core.dart';
-import 'package:vanavil_firebase/vanavil_firebase.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
 class AdminLoginScreen extends StatefulWidget {
-  const AdminLoginScreen({super.key, required this.bootstrap});
-
-  final VanavilFirebaseBootstrap bootstrap;
+  const AdminLoginScreen({super.key});
 
   @override
   State<AdminLoginScreen> createState() => _AdminLoginScreenState();
@@ -94,32 +90,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       color: VanavilPalette.inkSoft,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: VanavilPalette.creamSoft,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.bootstrap.statusLabel,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: VanavilPalette.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        for (final step in VanavilSetupGuide.adminSteps)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text('• $step'),
-                          ),
-                      ],
-                    ),
-                  ),
                   const Spacer(),
                 ],
               ),
@@ -145,7 +115,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Use your admin email and password to open the admin workspace. The owner account is promoted to super admin automatically after sign-in.',
+                            'Use your admin email and password to continue.',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           const SizedBox(height: 24),

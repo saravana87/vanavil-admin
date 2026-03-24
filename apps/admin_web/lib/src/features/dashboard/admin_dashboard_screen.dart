@@ -11,13 +11,8 @@ import '../reviews/manage_reviews_screen.dart';
 import '../tasks/manage_tasks_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({
-    super.key,
-    required this.bootstrap,
-    required this.access,
-  });
+  const AdminDashboardScreen({super.key, required this.access});
 
-  final VanavilFirebaseBootstrap bootstrap;
   final AdminAccess access;
 
   @override
@@ -77,11 +72,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         widget.access.roleLabel,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        widget.bootstrap.statusLabel,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
                     ],
                   ),
                 ),
@@ -128,7 +118,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: switch (_selectedSection) {
                 _AdminSection.dashboard => _DashboardOverview(
                   key: const ValueKey(_AdminSection.dashboard),
-                  bootstrap: widget.bootstrap,
                   access: widget.access,
                   onOpenChildren: () {
                     setState(() {
@@ -181,14 +170,12 @@ enum _AdminSection {
 class _DashboardOverview extends StatelessWidget {
   const _DashboardOverview({
     super.key,
-    required this.bootstrap,
     required this.access,
     required this.onOpenChildren,
     required this.onOpenReviews,
     required this.onOpenTasks,
   });
 
-  final VanavilFirebaseBootstrap bootstrap;
   final AdminAccess access;
   final VoidCallback onOpenChildren;
   final VoidCallback onOpenReviews;

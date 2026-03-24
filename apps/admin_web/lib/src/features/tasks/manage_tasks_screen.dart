@@ -25,7 +25,7 @@ class ManageTasksScreen extends StatefulWidget {
 }
 
 class _ManageTasksScreenState extends State<ManageTasksScreen> {
-  bool _isCreatingTask = false;
+  bool _isSavingTaskTemplate = false;
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +175,7 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                             ),
                           ),
                           FilledButton(
-                            onPressed: _isCreatingTask
+                            onPressed: _isSavingTaskTemplate
                                 ? null
                                 : _showCreateTaskDialog,
                             style: FilledButton.styleFrom(
@@ -386,7 +386,9 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                                                     ),
                                                   ],
                                                   const SizedBox(height: 14),
-                                                  Row(
+                                                  Wrap(
+                                                    spacing: 12,
+                                                    runSpacing: 12,
                                                     children: [
                                                       FilledButton(
                                                         onPressed:
@@ -404,17 +406,49 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                                                           'Assign Task',
                                                         ),
                                                       ),
-                                                      const SizedBox(width: 12),
+                                                      OutlinedButton.icon(
+                                                        onPressed:
+                                                            _isSavingTaskTemplate
+                                                            ? null
+                                                            : () =>
+                                                                  _showEditTaskDialog(
+                                                                    task,
+                                                                  ),
+                                                        icon: const Icon(
+                                                          Icons.edit_outlined,
+                                                        ),
+                                                        label: const Text(
+                                                          'Edit',
+                                                        ),
+                                                      ),
                                                       OutlinedButton(
-                                                        onPressed: () =>
-                                                            _toggleTemplateStatus(
-                                                              task,
-                                                            ),
+                                                        onPressed:
+                                                            _isSavingTaskTemplate
+                                                            ? null
+                                                            : () =>
+                                                                  _toggleTemplateStatus(
+                                                                    task,
+                                                                  ),
                                                         child: Text(
                                                           task.templateStatus ==
                                                                   'active'
                                                               ? 'Archive'
                                                               : 'Activate',
+                                                        ),
+                                                      ),
+                                                      TextButton.icon(
+                                                        onPressed:
+                                                            _isSavingTaskTemplate
+                                                            ? null
+                                                            : () =>
+                                                                  _deleteTaskTemplate(
+                                                                    task,
+                                                                  ),
+                                                        icon: const Icon(
+                                                          Icons.delete_outline,
+                                                        ),
+                                                        label: const Text(
+                                                          'Delete',
                                                         ),
                                                       ),
                                                     ],
@@ -533,13 +567,36 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
   }
 
   Future<void> _showCreateTaskDialog() async {
+    await _showTaskTemplateDialog();
+  }
+
+  Future<void> _showEditTaskDialog(_TaskTemplateRecord task) async {
+    await _showTaskTemplateDialog(existingTask: task);
+  }
+
+  Future<void> _showTaskTemplateDialog({
+    _TaskTemplateRecord? existingTask,
+  }) async {
+    final isEditing = existingTask != null;
     final formKey = GlobalKey<FormState>();
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final commentsController = TextEditingController();
-    final rewardPointsController = TextEditingController(text: '10');
+    final titleController = TextEditingController(
+      text: existingTask?.title ?? '',
+    );
+    final descriptionController = TextEditingController(
+      text: existingTask?.description ?? '',
+    );
+    final commentsController = TextEditingController(
+      text: existingTask?.comments ?? '',
+    );
+    final rewardPointsController = TextEditingController(
+      text: '${existingTask?.rewardPoints ?? 10}',
+    );
+    final currentAttachments = List<_TaskAttachmentRecord>.of(
+      existingTask?.attachments ?? const <_TaskAttachmentRecord>[],
+    );
+    final removedAttachments = <_TaskAttachmentRecord>[];
     final selectedAttachments = <_SelectedTaskAttachment>[];
-    var recurringDaily = false;
+    var recurringDaily = existingTask?.recurringDaily ?? false;
     var isSaving = false;
     String? errorMessage;
 
@@ -567,16 +624,27 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                 errorMessage = null;
               });
               setState(() {
-                _isCreatingTask = true;
+                _isSavingTaskTemplate = true;
               });
 
               final uploadedObjectKeys = <String>[];
 
               try {
-                final taskDocument = FirebaseFirestore.instance
-                    .collection(FirestoreCollections.tasks)
-                    .doc();
-                final attachmentRecords = <Map<String, dynamic>>[];
+                final taskDocument = isEditing
+                    ? FirebaseFirestore.instance
+                          .collection(FirestoreCollections.tasks)
+                          .doc(existingTask.id)
+                    : FirebaseFirestore.instance
+                          .collection(FirestoreCollections.tasks)
+                          .doc();
+                final attachmentRecords = currentAttachments
+                    .map((attachment) => attachment.toMap())
+                    .toList();
+                final removedObjectKeys = removedAttachments
+                    .map((attachment) => attachment.objectKey)
+                    .where((objectKey) => objectKey.isNotEmpty)
+                    .toSet()
+                    .toList();
                 String? attachmentUploadError;
 
                 for (final attachment in selectedAttachments) {
@@ -628,18 +696,28 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                   }
                 }
 
-                await taskDocument.set({
+                final taskPayload = <String, dynamic>{
                   'title': titleController.text.trim(),
                   'description': descriptionController.text.trim(),
                   'comments': commentsController.text.trim(),
                   'rewardPoints': int.parse(rewardPointsController.text.trim()),
                   'recurringDaily': recurringDaily,
-                  'templateStatus': 'active',
                   'attachments': attachmentRecords,
-                  'createdBy': currentUser.uid,
-                  'createdAt': FieldValue.serverTimestamp(),
                   'updatedAt': FieldValue.serverTimestamp(),
-                });
+                };
+
+                if (isEditing) {
+                  await taskDocument.update(taskPayload);
+                } else {
+                  await taskDocument.set({
+                    ...taskPayload,
+                    'templateStatus': 'active',
+                    'createdBy': currentUser.uid,
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+                }
+
+                await _deleteUploadedS3Objects(removedObjectKeys);
 
                 if (!dialogContext.mounted) {
                   return;
@@ -660,14 +738,16 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
               } finally {
                 if (mounted) {
                   setState(() {
-                    _isCreatingTask = false;
+                    _isSavingTaskTemplate = false;
                   });
                 }
               }
             }
 
             return AlertDialog(
-              title: const Text('Create task template'),
+              title: Text(
+                isEditing ? 'Edit task template' : 'Create task template',
+              ),
               content: SizedBox(
                 width: 460,
                 child: SingleChildScrollView(
@@ -810,12 +890,89 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                               const SizedBox(height: 12),
-                              if (selectedAttachments.isEmpty)
+                              if (currentAttachments.isNotEmpty) ...[
                                 Text(
-                                  'No files selected yet.',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                )
-                              else
+                                  'Current files',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Column(
+                                  children: [
+                                    for (final attachment in currentAttachments)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                _attachmentIcon(
+                                                  attachment.contentType,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  attachment.fileName,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Text(
+                                                _formatFileSize(
+                                                  attachment.sizeBytes,
+                                                ),
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodyMedium,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              IconButton(
+                                                tooltip: 'Remove file',
+                                                onPressed: isSaving
+                                                    ? null
+                                                    : () {
+                                                        setDialogState(() {
+                                                          currentAttachments
+                                                              .remove(
+                                                                attachment,
+                                                              );
+                                                          removedAttachments
+                                                              .add(attachment);
+                                                        });
+                                                      },
+                                                icon: const Icon(Icons.close),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (selectedAttachments.isNotEmpty) ...[
+                                Text(
+                                  'New files to upload',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
                                 Column(
                                   children: [
                                     for (final attachment
@@ -879,6 +1036,11 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                                       ),
                                   ],
                                 ),
+                              ] else if (currentAttachments.isEmpty)
+                                Text(
+                                  'No files selected yet.',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
                             ],
                           ),
                         ),
@@ -914,7 +1076,11 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                 ),
                 FilledButton(
                   onPressed: isSaving ? null : submit,
-                  child: Text(isSaving ? 'Saving...' : 'Save Task'),
+                  child: Text(
+                    isSaving
+                        ? (isEditing ? 'Saving...' : 'Creating...')
+                        : (isEditing ? 'Save Changes' : 'Save Task'),
+                  ),
                 ),
               ],
             );
@@ -1134,6 +1300,74 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
+  Future<void> _deleteTaskTemplate(_TaskTemplateRecord task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('Delete ${task.title}?'),
+          content: Text(
+            'This permanently removes the task template from Firestore. Existing assignments keep their copied title and points, but live task details and attached files will no longer be available from the child app.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Delete Task'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSavingTaskTemplate = true;
+    });
+
+    try {
+      await FirebaseFirestore.instance
+          .collection(FirestoreCollections.tasks)
+          .doc(task.id)
+          .delete();
+
+      final attachmentKeys = task.attachments
+          .map((attachment) => attachment.objectKey)
+          .where((objectKey) => objectKey.isNotEmpty)
+          .toSet()
+          .toList();
+      await _deleteUploadedS3Objects(attachmentKeys);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Task deleted.')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingTaskTemplate = false;
+        });
+      }
     }
   }
 
@@ -1622,6 +1856,20 @@ class _TaskAttachmentRecord {
   final String objectKey;
   final String storagePath;
   final String downloadUrl;
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'fileName': fileName,
+      'contentType': contentType,
+      'sizeBytes': sizeBytes,
+      'provider': provider,
+      'bucket': bucket,
+      'region': region,
+      'storagePath': storagePath,
+      'objectKey': objectKey,
+      'downloadUrl': downloadUrl,
+    };
+  }
 }
 
 class _TaskAttachmentUploadPlan {

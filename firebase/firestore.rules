@@ -125,7 +125,7 @@ service cloud.firestore {
       allow read: if isChildUser() && resource.data.templateStatus == 'active';
       allow create: if canAccessTask(request.resource.data);
       allow update: if canAccessTask(resource.data);
-      allow delete: if false;
+      allow delete: if canAccessTask(resource.data);
     }
 
     match /assignments/{assignmentId} {
