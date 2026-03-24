@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:vanavil_core/vanavil_core.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
+import '../shared/privacy_policy_screen.dart';
+
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
 
@@ -166,6 +168,26 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                               child: Text(
                                 _isSubmitting ? 'Checking...' : 'Sign in',
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Center(
+                            child: Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  'Public legal page:',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pushNamed(
+                                      PrivacyPolicyScreen.routeName,
+                                    );
+                                  },
+                                  child: const Text('Privacy Policy'),
+                                ),
+                              ],
                             ),
                           ),
                         ],

@@ -10,6 +10,7 @@ import 'admin_access.dart';
 import '../features/auth/admin_login_screen.dart';
 import '../features/auth/admin_onboarding_screen.dart';
 import '../features/dashboard/admin_dashboard_screen.dart';
+import '../features/shared/privacy_policy_screen.dart';
 
 Future<void> runVanavilAdminApp() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +27,22 @@ class VanavilAdminApp extends StatelessWidget {
       title: 'VANAVIL Admin',
       debugShowCheckedModeBanner: false,
       theme: buildAdminTheme(),
-      home: const _AdminAuthGate(),
+      initialRoute: '/',
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case PrivacyPolicyScreen.routeName:
+            return MaterialPageRoute<void>(
+              builder: (_) => const PrivacyPolicyScreen(),
+              settings: settings,
+            );
+          case '/':
+          default:
+            return MaterialPageRoute<void>(
+              builder: (_) => const _AdminAuthGate(),
+              settings: settings,
+            );
+        }
+      },
     );
   }
 }
