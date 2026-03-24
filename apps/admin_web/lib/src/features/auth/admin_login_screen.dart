@@ -181,9 +181,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                                 ),
                                 TextButton(
                                   onPressed: () {
-                                    Navigator.of(context).pushNamed(
-                                      PrivacyPolicyScreen.routeName,
-                                    );
+                                    Navigator.of(
+                                      context,
+                                    ).pushNamed(PrivacyPolicyScreen.routeName);
                                   },
                                   child: const Text('Privacy Policy'),
                                 ),
