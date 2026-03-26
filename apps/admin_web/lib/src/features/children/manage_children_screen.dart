@@ -285,6 +285,16 @@ class _ManageChildrenScreenState extends State<ManageChildrenScreen> {
                                               label: const Text('Set PIN'),
                                             ),
                                             const SizedBox(height: 10),
+                                            OutlinedButton.icon(
+                                              onPressed: () => _showChildDialog(
+                                                existingChild: child,
+                                              ),
+                                              icon: const Icon(
+                                                Icons.edit_outlined,
+                                              ),
+                                              label: const Text('Edit'),
+                                            ),
+                                            const SizedBox(height: 10),
                                             Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
@@ -325,11 +335,22 @@ class _ManageChildrenScreenState extends State<ManageChildrenScreen> {
   }
 
   Future<void> _showAddChildDialog() async {
+    await _showChildDialog();
+  }
+
+  Future<void> _showChildDialog({_ManagedChildRecord? existingChild}) async {
     final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController();
-    final ageController = TextEditingController();
-    final avatarController = TextEditingController();
-    var isActive = true;
+    final isEditing = existingChild != null;
+    final nameController = TextEditingController(
+      text: existingChild?.name ?? '',
+    );
+    final ageController = TextEditingController(
+      text: existingChild?.age.toString() ?? '',
+    );
+    final avatarController = TextEditingController(
+      text: existingChild?.avatar ?? '',
+    );
+    var isActive = existingChild?.isActive ?? true;
     var isSaving = false;
     String? errorMessage;
 
@@ -357,6 +378,13 @@ class _ManageChildrenScreenState extends State<ManageChildrenScreen> {
               final avatar = avatarController.text.trim().isEmpty
                   ? name.characters.first.toUpperCase()
                   : avatarController.text.trim().characters.first.toUpperCase();
+              final payload = <String, dynamic>{
+                'name': name,
+                'avatar': avatar,
+                'age': age,
+                'status': isActive ? 'active' : 'inactive',
+                'updatedAt': FieldValue.serverTimestamp(),
+              };
 
               setDialogState(() {
                 isSaving = true;
@@ -367,19 +395,22 @@ class _ManageChildrenScreenState extends State<ManageChildrenScreen> {
               });
 
               try {
-                await FirebaseFirestore.instance
-                    .collection(FirestoreCollections.children)
-                    .add({
-                      'adminId': currentUser.uid,
-                      'name': name,
-                      'avatar': avatar,
-                      'age': age,
-                      'status': isActive ? 'active' : 'inactive',
-                      'totalPoints': 0,
-                      'badgeCount': 0,
-                      'createdAt': FieldValue.serverTimestamp(),
-                      'updatedAt': FieldValue.serverTimestamp(),
-                    });
+                if (isEditing) {
+                  await FirebaseFirestore.instance
+                      .collection(FirestoreCollections.children)
+                      .doc(existingChild.id)
+                      .update(payload);
+                } else {
+                  await FirebaseFirestore.instance
+                      .collection(FirestoreCollections.children)
+                      .add({
+                        'adminId': currentUser.uid,
+                        ...payload,
+                        'totalPoints': 0,
+                        'badgeCount': 0,
+                        'createdAt': FieldValue.serverTimestamp(),
+                      });
+                }
 
                 if (!dialogContext.mounted) {
                   return;
@@ -401,7 +432,9 @@ class _ManageChildrenScreenState extends State<ManageChildrenScreen> {
             }
 
             return AlertDialog(
-              title: const Text('Add child profile'),
+              title: Text(
+                isEditing ? 'Edit child profile' : 'Add child profile',
+              ),
               content: SizedBox(
                 width: 420,
                 child: Form(
@@ -477,7 +510,11 @@ class _ManageChildrenScreenState extends State<ManageChildrenScreen> {
                 ),
                 FilledButton(
                   onPressed: isSaving ? null : submit,
-                  child: Text(isSaving ? 'Creating...' : 'Create Child'),
+                  child: Text(
+                    isSaving
+                        ? (isEditing ? 'Saving...' : 'Creating...')
+                        : (isEditing ? 'Save Changes' : 'Create Child'),
+                  ),
                 ),
               ],
             );
