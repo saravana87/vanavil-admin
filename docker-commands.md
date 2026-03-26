@@ -1,221 +1,86 @@
-# Docker And Apache Commands
+# Docker Commands
 
-Assumption: run these commands from the repository root on the server.
+Final production domains:
 
-## 1. Build S3 Signer API
+- Admin web: `https://vanavil.digitalgrub.in`
+- API: `https://vanavilapi.digitalgrub.in`
 
-```bash
-docker build -t vanavil-s3-api ./services/s3_signer_api
-```
+Assumption: the server checkout already exists at `/vanavi/vanavil-admin` and this repository already includes [docker-compose.yml](docker-compose.yml).
 
-## 2. Run S3 Signer API On Port 8004
-
-```bash
-docker rm -f vanavil-s3-api || true
-
-FIREBASE_JSON="/vanavi/vanavil-admin/services/s3_signer_api/vanavil-2c565-firebase-adminsdk-fbsvc-9773c8b670.json"
-ls -l "$FIREBASE_JSON"
-
-docker run -d \
-  --name vanavil-s3-api \
-  --restart unless-stopped \
-  -p 8004:8000 \
-  --env-file ./services/s3_signer_api/.env \
-  -v "$FIREBASE_JSON:/run/secrets/firebase-service-account.json:ro" \
-  -e FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase-service-account.json \
-  vanavil-s3-api
-```
-
-Host JSON file path:
+## 1. Pull Latest Code
 
 ```bash
-/vanavi/vanavil-admin/services/s3_signer_api/vanavil-2c565-firebase-adminsdk-fbsvc-9773c8b670.json
+cd /vanavi/vanavil-admin
+git pull origin main
 ```
 
-Container JSON file path used by the app:
+## 2. Check Required Files
 
-```bash
-/run/secrets/firebase-service-account.json
-```
+Make sure these files already exist on the server before starting containers:
 
-## 3. Test S3 Signer API
+- `services/s3_signer_api/.env`
+- `services/s3_signer_api/vanavil-2c565-firebase-adminsdk-fbsvc-9773c8b670.json`
 
-```bash
-docker ps
-curl http://127.0.0.1:8004/docs
-docker logs -f vanavil-s3-api
-```
-
-## 4. Update S3 API Env For Domain
-
-Update `services/s3_signer_api/.env` on the server to include:
+Update `services/s3_signer_api/.env` to include:
 
 ```dotenv
 S3_API_ALLOWED_ORIGINS=https://vanavil.digitalgrub.in
 S3_API_ALLOWED_ORIGIN_REGEX=
 ```
 
-After changing `.env`, recreate the container:
+## 3. Start With Docker Compose
+
+The repository already has a compose file that starts both services together.
 
 ```bash
-docker rm -f vanavil-s3-api
+cd /vanavi/vanavil-admin
 
-FIREBASE_JSON="/vanavi/vanavil-admin/services/s3_signer_api/vanavil-2c565-firebase-adminsdk-fbsvc-9773c8b670.json"
-ls -l "$FIREBASE_JSON"
-
-docker run -d \
-  --name vanavil-s3-api \
-  --restart unless-stopped \
-  -p 8004:8000 \
-  --env-file ./services/s3_signer_api/.env \
-  -v "$FIREBASE_JSON:/run/secrets/firebase-service-account.json:ro" \
-  -e FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase-service-account.json \
-  vanavil-s3-api
+export VANAVIL_S3_API_BASE_URL=https://vanavilapi.digitalgrub.in
+docker compose up --build -d
 ```
 
-## 5. Build Admin Web With Production API URL
+## 4. Quick Checks
 
 ```bash
-docker build \
-  -t vanavil-admin-web \
-  -f apps/admin_web/Dockerfile \
-  --build-arg VANAVIL_S3_API_BASE_URL=https://vanavil.digitalgrub.in/api \
-  .
-```
+cd /vanavi/vanavil-admin
 
-## 6. Run Admin Web On Port 8080
-
-```bash
-docker rm -f vanavil-admin-web || true
-
-docker run -d \
-  --name vanavil-admin-web \
-  --restart unless-stopped \
-  -p 8080:80 \
-  vanavil-admin-web
-```
-
-## 7. Test Admin Web
-
-```bash
-docker ps
+docker compose ps
+curl http://127.0.0.1:8000/docs
 curl http://127.0.0.1:8080
-docker logs -f vanavil-admin-web
+docker compose logs --tail 100 s3_signer_api
+docker compose logs --tail 100 admin_web
 ```
 
-## 8. Apache Config For Domain
+## 5. Apache Routing
 
-Create the Apache vhost file:
+Expected Apache target mapping:
+
+- `vanavil.digitalgrub.in` -> `http://127.0.0.1:8080`
+- `vanavilapi.digitalgrub.in` -> `http://127.0.0.1:8000`
+
+## 6. Rebuild After Code Changes
+
+Use this after `git pull` when application code changed:
 
 ```bash
-sudo tee /etc/httpd/conf.d/vanavil.conf > /dev/null <<'EOF'
-<VirtualHost *:80>
-    ServerName vanavil.digitalgrub.in
+cd /vanavi/vanavil-admin
 
-    ProxyPreserveHost On
-    ProxyRequests Off
-
-    RequestHeader set X-Forwarded-Proto "http"
-    RequestHeader set X-Forwarded-Port "80"
-
-    ProxyPass /api/ http://127.0.0.1:8004/
-    ProxyPassReverse /api/ http://127.0.0.1:8004/
-
-    ProxyPass / http://127.0.0.1:8080/
-    ProxyPassReverse / http://127.0.0.1:8080/
-
-    ErrorLog /var/log/httpd/vanavil-error.log
-    CustomLog /var/log/httpd/vanavil-access.log combined
-</VirtualHost>
-EOF
+export VANAVIL_S3_API_BASE_URL=https://vanavilapi.digitalgrub.in
+docker compose up --build -d
 ```
 
-Validate and restart Apache:
+## 7. Restart Without Rebuild
+
+Use this when only runtime state changed and the images do not need to be rebuilt:
 
 ```bash
-sudo apachectl configtest
-sudo systemctl restart httpd
+cd /vanavi/vanavil-admin
+docker compose restart
 ```
 
-## 9. HTTPS Apache Config
-
-If SSL is configured, use this structure for the HTTPS vhost:
-
-```apache
-<VirtualHost *:443>
-    ServerName vanavil.digitalgrub.in
-
-    SSLEngine on
-
-    ProxyPreserveHost On
-    ProxyRequests Off
-
-    RequestHeader set X-Forwarded-Proto "https"
-    RequestHeader set X-Forwarded-Port "443"
-
-    ProxyPass /api/ http://127.0.0.1:8004/
-    ProxyPassReverse /api/ http://127.0.0.1:8004/
-
-    ProxyPass / http://127.0.0.1:8080/
-    ProxyPassReverse / http://127.0.0.1:8080/
-
-    ErrorLog /var/log/httpd/vanavil-error.log
-    CustomLog /var/log/httpd/vanavil-access.log combined
-</VirtualHost>
-```
-
-## 10. End-To-End Checks
+## 8. Stop Everything
 
 ```bash
-curl http://127.0.0.1:8004/docs
-curl http://127.0.0.1:8080
-curl -I http://vanavil.digitalgrub.in
-curl -I http://vanavil.digitalgrub.in/api/docs
-```
-
-If HTTPS is enabled:
-
-```bash
-curl -I https://vanavil.digitalgrub.in
-curl -I https://vanavil.digitalgrub.in/api/docs
-```
-
-## 11. Rebuild Only Admin Web After API Path Change
-
-If the public API URL changes, rebuild only the admin web image:
-
-```bash
-docker rm -f vanavil-admin-web
-
-docker build \
-  -t vanavil-admin-web \
-  -f apps/admin_web/Dockerfile \
-  --build-arg VANAVIL_S3_API_BASE_URL=https://vanavil.digitalgrub.in/api \
-  .
-
-docker run -d \
-  --name vanavil-admin-web \
-  --restart unless-stopped \
-  -p 8080:80 \
-  vanavil-admin-web
-```
-
-## 12. Recreate Only S3 API After Env Change
-
-If only `.env` changes, do not rebuild the image. Recreate the container:
-
-```bash
-docker rm -f vanavil-s3-api
-
-FIREBASE_JSON="/vanavi/vanavil-admin/services/s3_signer_api/vanavil-2c565-firebase-adminsdk-fbsvc-9773c8b670.json"
-ls -l "$FIREBASE_JSON"
-
-docker run -d \
-  --name vanavil-s3-api \
-  --restart unless-stopped \
-  -p 8004:8000 \
-  --env-file ./services/s3_signer_api/.env \
-  -v "$FIREBASE_JSON:/run/secrets/firebase-service-account.json:ro" \
-  -e FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase-service-account.json \
-  vanavil-s3-api
+cd /vanavi/vanavil-admin
+docker compose down
 ```
