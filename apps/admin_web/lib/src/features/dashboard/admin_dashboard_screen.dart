@@ -6,6 +6,7 @@ import 'package:vanavil_firebase/vanavil_firebase.dart';
 import 'package:vanavil_ui/vanavil_ui.dart';
 
 import '../../app/admin_access.dart';
+import '../announcements/manage_announcements_screen.dart';
 import '../children/manage_children_screen.dart';
 import '../reviews/manage_reviews_screen.dart';
 import '../tasks/manage_tasks_screen.dart';
@@ -146,6 +147,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _AdminSection.tasks => ManageTasksScreen(
                   key: const ValueKey(_AdminSection.tasks),
                   access: widget.access,
+                  onOpenReviews: () {
+                    setState(() {
+                      _selectedSection = _AdminSection.reviews;
+                    });
+                  },
+                ),
+                _AdminSection.announcements => ManageAnnouncementsScreen(
+                  key: const ValueKey(_AdminSection.announcements),
+                  access: widget.access,
                 ),
               },
             ),
@@ -160,7 +170,8 @@ enum _AdminSection {
   dashboard('Dashboard'),
   children('Children'),
   reviews('Reviews'),
-  tasks('Tasks');
+  tasks('Tasks'),
+  announcements('Announcements');
 
   const _AdminSection(this.label);
 

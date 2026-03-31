@@ -23,3 +23,16 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+
+  child_web:
+    build:
+      context: .
+      dockerfile: apps/child_app/Dockerfile
+      args:
+        VANAVIL_API_BASE_URL: ${VANAVIL_API_BASE_URL:-http://127.0.0.1:8000}
+        VANAVIL_WEB_BASE_HREF: ${VANAVIL_CHILD_WEB_BASE_HREF:-/child_login/}
+    depends_on:
+      - s3_signer_api
+    ports:
+      - "8081:80"
+    restart: unless-stopped

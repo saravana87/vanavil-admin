@@ -16,9 +16,14 @@ import 'task_attachment_picker.dart';
 const String _s3ApiBaseUrl = String.fromEnvironment('VANAVIL_S3_API_BASE_URL');
 
 class ManageTasksScreen extends StatefulWidget {
-  const ManageTasksScreen({super.key, required this.access});
+  const ManageTasksScreen({
+    super.key,
+    required this.access,
+    this.onOpenReviews,
+  });
 
   final AdminAccess access;
+  final VoidCallback? onOpenReviews;
 
   @override
   State<ManageTasksScreen> createState() => _ManageTasksScreenState();
@@ -26,6 +31,17 @@ class ManageTasksScreen extends StatefulWidget {
 
 class _ManageTasksScreenState extends State<ManageTasksScreen> {
   bool _isSavingTaskTemplate = false;
+
+  Future<void> _openAssignmentDetails(_AssignedTaskRecord assignment) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _AssignmentDetailsScreen(
+          assignment: assignment,
+          onOpenReviews: widget.onOpenReviews,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -492,57 +508,108 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
                                           itemBuilder: (context, index) {
                                             final assignment =
                                                 assignments[index];
-                                            return Container(
-                                              padding: const EdgeInsets.all(16),
-                                              decoration: BoxDecoration(
-                                                color: VanavilPalette.creamSoft,
+                                            return Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
                                                 borderRadius:
                                                     BorderRadius.circular(20),
-                                              ),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    assignment.taskTitle,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: VanavilPalette.ink,
+                                                onTap: () =>
+                                                    _openAssignmentDetails(
+                                                      assignment,
                                                     ),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(
+                                                    16,
                                                   ),
-                                                  const SizedBox(height: 6),
-                                                  Text(
-                                                    '${assignment.childName} • ${assignment.rewardPoints} points',
-                                                    style: Theme.of(
-                                                      context,
-                                                    ).textTheme.bodyMedium,
+                                                  decoration: BoxDecoration(
+                                                    color: VanavilPalette
+                                                        .creamSoft,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          20,
+                                                        ),
                                                   ),
-                                                  const SizedBox(height: 10),
-                                                  Row(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
-                                                      VanavilStatusChip(
-                                                        status:
-                                                            assignment.status,
+                                                      Text(
+                                                        assignment.taskTitle,
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: VanavilPalette
+                                                              .ink,
+                                                        ),
                                                       ),
-                                                      const SizedBox(width: 10),
-                                                      Expanded(
-                                                        child: Text(
-                                                          _formatDueLabel(
-                                                            context,
-                                                            assignment.dueDate,
+                                                      const SizedBox(height: 6),
+                                                      Text(
+                                                        '${assignment.childName} • ${assignment.rewardPoints} points',
+                                                        style: Theme.of(
+                                                          context,
+                                                        ).textTheme.bodyMedium,
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
+                                                      Row(
+                                                        children: [
+                                                          VanavilStatusChip(
+                                                            status: assignment
+                                                                .status,
                                                           ),
-                                                          style:
-                                                              Theme.of(context)
-                                                                  .textTheme
-                                                                  .bodyMedium,
-                                                          textAlign:
-                                                              TextAlign.right,
+                                                          const SizedBox(
+                                                            width: 10,
+                                                          ),
+                                                          Expanded(
+                                                            child: Text(
+                                                              _formatDueLabel(
+                                                                context,
+                                                                assignment
+                                                                    .dueDate,
+                                                              ),
+                                                              style:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .textTheme
+                                                                      .bodyMedium,
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .right,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 12,
+                                                      ),
+                                                      TextButton.icon(
+                                                        onPressed: () =>
+                                                            _openAssignmentDetails(
+                                                              assignment,
+                                                            ),
+                                                        style: TextButton.styleFrom(
+                                                          padding:
+                                                              EdgeInsets.zero,
+                                                          minimumSize:
+                                                              Size.zero,
+                                                          tapTargetSize:
+                                                              MaterialTapTargetSize
+                                                                  .shrinkWrap,
+                                                        ),
+                                                        icon: const Icon(
+                                                          Icons.open_in_new,
+                                                          size: 18,
+                                                        ),
+                                                        label: const Text(
+                                                          'View details',
                                                         ),
                                                       ),
                                                     ],
                                                   ),
-                                                ],
+                                                ),
                                               ),
                                             );
                                           },
@@ -1101,12 +1168,15 @@ class _ManageTasksScreenState extends State<ManageTasksScreen> {
   }) async {
     final formKey = GlobalKey<FormState>();
     final dueDateController = TextEditingController();
+    final defaultDueDate = DateTime.now().add(const Duration(hours: 24));
     _ActiveChildRecord? selectedChild = children.isEmpty
         ? null
         : children.first;
-    DateTime? selectedDueDate;
+    DateTime? selectedDueDate = defaultDueDate;
     var isSaving = false;
     String? errorMessage;
+
+    dueDateController.text = _formatDueLabel(context, defaultDueDate);
 
     await showDialog<void>(
       context: context,
@@ -1560,6 +1630,644 @@ class _TaskMetricCard extends StatelessWidget {
   }
 }
 
+class _AssignmentDetailsScreen extends StatefulWidget {
+  const _AssignmentDetailsScreen({
+    required this.assignment,
+    this.onOpenReviews,
+  });
+
+  final _AssignedTaskRecord assignment;
+  final VoidCallback? onOpenReviews;
+
+  @override
+  State<_AssignmentDetailsScreen> createState() =>
+      _AssignmentDetailsScreenState();
+}
+
+class _AssignmentDetailsScreenState extends State<_AssignmentDetailsScreen> {
+  Future<void> _openSubmissionAttachment(_SubmissionRecord submission) async {
+    try {
+      final response = await http.post(
+        _buildS3ApiUri('/attachments/admin-submission-download-url'),
+        headers: await _buildS3ApiJsonHeaders(),
+        body: jsonEncode(<String, dynamic>{
+          'submissionId': submission.id,
+          'fileName': submission.fileName,
+          'contentType': submission.contentType,
+        }),
+      );
+      _throwIfS3ApiFailed(
+        response,
+        fallbackMessage: 'Unable to open the submitted proof file.',
+      );
+
+      final payload = _decodeJsonObject(response.body);
+      final resolvedUrl = _readString(payload['downloadUrl']);
+      final uri = Uri.tryParse(resolvedUrl);
+      if (uri == null) {
+        throw Exception('The API returned an invalid proof URL.');
+      }
+
+      final launched = await launchUrl(uri, webOnlyWindowName: '_blank');
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to open ${submission.fileName}.')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
+  Future<void> _openTaskAttachment(_TaskAttachmentRecord attachment) async {
+    try {
+      final resolvedUrl = attachment.downloadUrl.isNotEmpty
+          ? attachment.downloadUrl
+          : await _getAttachmentDownloadUrl(attachment);
+      final uri = Uri.tryParse(resolvedUrl);
+      if (uri == null) {
+        throw Exception('Invalid attachment URL.');
+      }
+
+      final launched = await launchUrl(uri, webOnlyWindowName: '_blank');
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to open ${attachment.fileName}.')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final submissionsStream = FirebaseFirestore.instance
+        .collection(FirestoreCollections.submissions)
+        .where('childId', isEqualTo: widget.assignment.childId)
+        .snapshots();
+    final reviewsStream = FirebaseFirestore.instance
+        .collection(FirestoreCollections.reviews)
+        .where('assignmentId', isEqualTo: widget.assignment.id)
+        .snapshots();
+    final taskStream = widget.assignment.taskId.isEmpty
+        ? null
+        : FirebaseFirestore.instance
+              .collection(FirestoreCollections.tasks)
+              .doc(widget.assignment.taskId)
+              .snapshots();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Assignment details'),
+        actions: [
+          if (widget.assignment.status == AssignmentStatus.submitted &&
+              widget.onOpenReviews != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: TextButton.icon(
+                onPressed: () {
+                  widget.onOpenReviews?.call();
+                  Navigator.of(context).pop();
+                },
+                icon: const Icon(Icons.rate_review_outlined),
+                label: const Text('Open Reviews'),
+              ),
+            ),
+        ],
+      ),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: submissionsStream,
+        builder: (context, submissionsSnapshot) {
+          if (submissionsSnapshot.hasError) {
+            return _TasksErrorState(
+              title: 'Unable to load submission details',
+              message: submissionsSnapshot.error.toString(),
+            );
+          }
+
+          final submissions =
+              submissionsSnapshot.data?.docs
+                  .map(_SubmissionRecord.fromSnapshot)
+                  .where(
+                    (submission) =>
+                        submission.assignmentId == widget.assignment.id,
+                  )
+                  .toList() ??
+              <_SubmissionRecord>[];
+          submissions.sort((left, right) {
+            final leftDate = left.uploadedAt;
+            final rightDate = right.uploadedAt;
+            if (leftDate == null && rightDate == null) {
+              return left.fileName.compareTo(right.fileName);
+            }
+            if (leftDate == null) return 1;
+            if (rightDate == null) return -1;
+            return rightDate.compareTo(leftDate);
+          });
+
+          final notes = submissions
+              .map((submission) => submission.note)
+              .where((note) => note.isNotEmpty)
+              .toSet()
+              .toList();
+
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: reviewsStream,
+            builder: (context, reviewsSnapshot) {
+              if (reviewsSnapshot.hasError) {
+                return _TasksErrorState(
+                  title: 'Unable to load review history',
+                  message: reviewsSnapshot.error.toString(),
+                );
+              }
+
+              final reviews =
+                  reviewsSnapshot.data?.docs
+                      .map(_AssignmentReviewRecord.fromSnapshot)
+                      .toList() ??
+                  <_AssignmentReviewRecord>[];
+              reviews.sort((left, right) {
+                final leftDate = left.reviewedAt;
+                final rightDate = right.reviewedAt;
+                if (leftDate == null && rightDate == null) {
+                  return left.id.compareTo(right.id);
+                }
+                if (leftDate == null) return 1;
+                if (rightDate == null) return -1;
+                return rightDate.compareTo(leftDate);
+              });
+
+              final latestReview = reviews.isEmpty ? null : reviews.first;
+
+              Widget buildBody(_TaskTemplateRecord? taskTemplate) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      VanavilSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.assignment.taskTitle,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.headlineSmall,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${widget.assignment.childName} • ${widget.assignment.rewardPoints} points',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodyMedium,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                VanavilStatusChip(
+                                  status: widget.assignment.status,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                _TaskInfoChip(
+                                  label: _formatDueLabel(
+                                    context,
+                                    widget.assignment.dueDate,
+                                  ),
+                                  color: VanavilPalette.sun,
+                                ),
+                                _TaskInfoChip(
+                                  label: _formatTimestampLabel(
+                                    context,
+                                    'Assigned',
+                                    widget.assignment.createdAt,
+                                  ),
+                                  color: VanavilPalette.sky,
+                                ),
+                                if (widget.assignment.submittedAt != null)
+                                  _TaskInfoChip(
+                                    label: _formatTimestampLabel(
+                                      context,
+                                      'Submitted',
+                                      widget.assignment.submittedAt,
+                                    ),
+                                    color: VanavilPalette.leaf,
+                                  ),
+                                if (widget.assignment.approvedAt != null)
+                                  _TaskInfoChip(
+                                    label: _formatTimestampLabel(
+                                      context,
+                                      'Approved',
+                                      widget.assignment.approvedAt,
+                                    ),
+                                    color: VanavilPalette.leaf,
+                                  ),
+                                if (widget.assignment.rejectedAt != null)
+                                  _TaskInfoChip(
+                                    label: _formatTimestampLabel(
+                                      context,
+                                      'Rejected',
+                                      widget.assignment.rejectedAt,
+                                    ),
+                                    color: VanavilPalette.coral,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      VanavilSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Task instructions',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 12),
+                            if (taskTemplate == null)
+                              const Text(
+                                'The original task template details are not available for this assignment.',
+                              )
+                            else ...[
+                              if (taskTemplate.description.isNotEmpty) ...[
+                                Text(
+                                  taskTemplate.description,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (taskTemplate.comments.isNotEmpty) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: VanavilPalette.creamSoft,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(taskTemplate.comments),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (taskTemplate.attachments.isEmpty &&
+                                  taskTemplate.description.isEmpty &&
+                                  taskTemplate.comments.isEmpty)
+                                const Text(
+                                  'This assignment does not have additional task instructions or files.',
+                                ),
+                              if (taskTemplate.attachments.isNotEmpty) ...[
+                                Text(
+                                  'Task files',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 12),
+                                ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: taskTemplate.attachments.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 12),
+                                  itemBuilder: (context, index) {
+                                    final attachment =
+                                        taskTemplate.attachments[index];
+                                    return Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: VanavilPalette.creamSoft,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _attachmentIcon(
+                                              attachment.contentType,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  attachment.fileName,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    color: VanavilPalette.ink,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '${attachment.contentType.isEmpty ? 'Unknown type' : attachment.contentType} • ${_formatFileSize(attachment.sizeBytes)}',
+                                                  style: Theme.of(
+                                                    context,
+                                                  ).textTheme.bodyMedium,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          OutlinedButton.icon(
+                                            onPressed: () =>
+                                                _openTaskAttachment(attachment),
+                                            icon: Icon(
+                                              _attachmentActionIcon(
+                                                attachment.contentType,
+                                              ),
+                                            ),
+                                            label: Text(
+                                              _attachmentActionLabel(
+                                                attachment.contentType,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      VanavilSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Submission details',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 12),
+                            if (submissions.isEmpty)
+                              Text(switch (widget.assignment.status) {
+                                AssignmentStatus.assigned =>
+                                  'The child has not submitted proof for this assignment yet.',
+                                AssignmentStatus.submitted =>
+                                  'The assignment is marked as submitted, but no proof files are visible yet.',
+                                AssignmentStatus.approved ||
+                                AssignmentStatus.rejected ||
+                                AssignmentStatus.completed =>
+                                  'No proof files were found for this assignment.',
+                              })
+                            else ...[
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: [
+                                  _TaskInfoChip(
+                                    label:
+                                        '${submissions.length} proof item${submissions.length == 1 ? '' : 's'}',
+                                    color: VanavilPalette.sky,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Child explanation',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 12),
+                              if (notes.isEmpty)
+                                const Text(
+                                  'No written explanation was included with this submission.',
+                                )
+                              else
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: VanavilPalette.creamSoft,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      for (final note in notes) ...[
+                                        Text(note),
+                                        if (note != notes.last)
+                                          const SizedBox(height: 12),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Uploaded proof',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 12),
+                              ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: submissions.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 12),
+                                itemBuilder: (context, index) {
+                                  final submission = submissions[index];
+                                  return Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: VanavilPalette.creamSoft,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            _attachmentIcon(
+                                              submission.contentType,
+                                            ),
+                                            color: VanavilPalette.ink,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                submission.fileName,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: VanavilPalette.ink,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${submission.proofTypeLabel} • ${_formatFileSize(submission.sizeBytes)}',
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodyMedium,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        OutlinedButton.icon(
+                                          onPressed:
+                                              submission.objectKey.isEmpty
+                                              ? null
+                                              : () => _openSubmissionAttachment(
+                                                  submission,
+                                                ),
+                                          icon: Icon(
+                                            _attachmentActionIcon(
+                                              submission.contentType,
+                                            ),
+                                          ),
+                                          label: Text(
+                                            _attachmentActionLabel(
+                                              submission.contentType,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      VanavilSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Review status',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 12),
+                            if (latestReview == null)
+                              Text(switch (widget.assignment.status) {
+                                AssignmentStatus.submitted =>
+                                  'This assignment is waiting for admin review. You can also open it in the Reviews section.',
+                                AssignmentStatus.assigned =>
+                                  'The child has not submitted this assignment yet.',
+                                AssignmentStatus.approved ||
+                                AssignmentStatus.rejected ||
+                                AssignmentStatus.completed =>
+                                  'No review record was found for this assignment.',
+                              })
+                            else ...[
+                              Row(
+                                children: [
+                                  VanavilStatusChip(
+                                    status: latestReview.status,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    _formatDateTimeLabel(
+                                      context,
+                                      latestReview.reviewedAt,
+                                    ),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Points awarded: ${latestReview.pointsAwarded}',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                              if (latestReview.comment.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: VanavilPalette.creamSoft,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(latestReview.comment),
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (taskStream == null) {
+                return buildBody(null);
+              }
+
+              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: taskStream,
+                builder: (context, taskSnapshot) {
+                  if (taskSnapshot.hasError) {
+                    return _TasksErrorState(
+                      title: 'Unable to load task instructions',
+                      message: taskSnapshot.error.toString(),
+                    );
+                  }
+
+                  final taskTemplate =
+                      taskSnapshot.hasData && taskSnapshot.data!.exists
+                      ? _TaskTemplateRecord.fromDocumentSnapshot(
+                          taskSnapshot.data!,
+                        )
+                      : null;
+
+                  return buildBody(taskTemplate);
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _TaskTemplateRecord {
   const _TaskTemplateRecord({
     required this.id,
@@ -1577,10 +2285,27 @@ class _TaskTemplateRecord {
   factory _TaskTemplateRecord.fromSnapshot(
     QueryDocumentSnapshot<Map<String, dynamic>> snapshot,
   ) {
-    final data = snapshot.data();
-
-    return _TaskTemplateRecord(
+    return _TaskTemplateRecord._fromData(
       id: snapshot.id,
+      data: snapshot.data(),
+    );
+  }
+
+  factory _TaskTemplateRecord.fromDocumentSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    return _TaskTemplateRecord._fromData(
+      id: snapshot.id,
+      data: snapshot.data() ?? <String, dynamic>{},
+    );
+  }
+
+  factory _TaskTemplateRecord._fromData({
+    required String id,
+    required Map<String, dynamic> data,
+  }) {
+    return _TaskTemplateRecord(
+      id: id,
       title: _readString(data['title'], fallback: 'Untitled task'),
       description: _readString(data['description']),
       comments: _readString(data['comments']),
@@ -1607,12 +2332,18 @@ class _TaskTemplateRecord {
 
 class _AssignedTaskRecord {
   const _AssignedTaskRecord({
+    required this.id,
+    required this.taskId,
+    required this.childId,
     required this.taskTitle,
     required this.childName,
     required this.rewardPoints,
     required this.status,
     required this.dueDate,
     required this.createdAt,
+    required this.submittedAt,
+    required this.approvedAt,
+    required this.rejectedAt,
   });
 
   factory _AssignedTaskRecord.fromSnapshot(
@@ -1621,6 +2352,9 @@ class _AssignedTaskRecord {
     final data = snapshot.data();
 
     return _AssignedTaskRecord(
+      id: snapshot.id,
+      taskId: _readString(data['taskId']),
+      childId: _readString(data['childId']),
       taskTitle: _readString(data['taskTitle'], fallback: 'Assigned task'),
       childName: _readString(data['childName'], fallback: 'Unknown child'),
       rewardPoints: _readInt(data['rewardPoints']),
@@ -1630,15 +2364,108 @@ class _AssignedTaskRecord {
       dueDate: _readDateTime(data['dueDate']),
       createdAt:
           _readDateTime(data['createdAt']) ?? _readDateTime(data['assignedAt']),
+      submittedAt: _readDateTime(data['submittedAt']),
+      approvedAt: _readDateTime(data['approvedAt']),
+      rejectedAt: _readDateTime(data['rejectedAt']),
     );
   }
 
+  final String id;
+  final String taskId;
+  final String childId;
   final String taskTitle;
   final String childName;
   final int rewardPoints;
   final AssignmentStatus status;
   final DateTime? dueDate;
   final DateTime? createdAt;
+  final DateTime? submittedAt;
+  final DateTime? approvedAt;
+  final DateTime? rejectedAt;
+}
+
+class _AssignmentReviewRecord {
+  const _AssignmentReviewRecord({
+    required this.id,
+    required this.decision,
+    required this.comment,
+    required this.pointsAwarded,
+    required this.reviewedAt,
+  });
+
+  factory _AssignmentReviewRecord.fromSnapshot(
+    QueryDocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final data = snapshot.data();
+
+    return _AssignmentReviewRecord(
+      id: snapshot.id,
+      decision: _readString(data['decision'], fallback: 'submitted'),
+      comment: _readString(data['comment']),
+      pointsAwarded: _readInt(data['pointsAwarded']),
+      reviewedAt: _readDateTime(data['reviewedAt']),
+    );
+  }
+
+  final String id;
+  final String decision;
+  final String comment;
+  final int pointsAwarded;
+  final DateTime? reviewedAt;
+
+  AssignmentStatus get status => _assignmentStatusFromString(decision);
+}
+
+class _SubmissionRecord {
+  const _SubmissionRecord({
+    required this.id,
+    required this.assignmentId,
+    required this.objectKey,
+    required this.fileName,
+    required this.contentType,
+    required this.proofType,
+    required this.note,
+    required this.sizeBytes,
+    required this.uploadedAt,
+  });
+
+  factory _SubmissionRecord.fromSnapshot(
+    QueryDocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final data = snapshot.data();
+    return _SubmissionRecord(
+      id: snapshot.id,
+      assignmentId: _readString(data['assignmentId']),
+      objectKey: _readString(data['objectKey']),
+      fileName: _readString(data['fileName'], fallback: 'attachment'),
+      contentType: _readString(
+        data['contentType'],
+        fallback: 'application/octet-stream',
+      ),
+      proofType: _readString(data['proofType'], fallback: 'file'),
+      note: _readString(data['note']),
+      sizeBytes: _readInt(data['sizeBytes']),
+      uploadedAt: _readDateTime(data['uploadedAt']),
+    );
+  }
+
+  final String id;
+  final String assignmentId;
+  final String objectKey;
+  final String fileName;
+  final String contentType;
+  final String proofType;
+  final String note;
+  final int sizeBytes;
+  final DateTime? uploadedAt;
+
+  String get proofTypeLabel => switch (proofType) {
+    'photo' => 'Photo',
+    'video' => 'Video',
+    'audio' => 'Audio',
+    'text' => 'Note',
+    _ => 'File',
+  };
 }
 
 class _ActiveChildRecord {
@@ -1999,6 +2826,25 @@ String _formatDueLabel(BuildContext context, DateTime? dateTime) {
     return 'Tomorrow, $timeLabel';
   }
   return '${dateTime.day} ${_monthLabel(dateTime.month)}, $timeLabel';
+}
+
+String _formatDateTimeLabel(BuildContext context, DateTime? dateTime) {
+  if (dateTime == null) {
+    return 'Not recorded yet';
+  }
+
+  final timeLabel = MaterialLocalizations.of(
+    context,
+  ).formatTimeOfDay(TimeOfDay.fromDateTime(dateTime));
+  return '${dateTime.day} ${_monthLabel(dateTime.month)}, $timeLabel';
+}
+
+String _formatTimestampLabel(
+  BuildContext context,
+  String label,
+  DateTime? dateTime,
+) {
+  return '$label: ${_formatDateTimeLabel(context, dateTime)}';
 }
 
 String _monthLabel(int month) {
