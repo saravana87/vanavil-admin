@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "507848086716",
+    "project_id": "vanavil-2c565",
+    "storage_bucket": "vanavil-2c565.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:507848086716:android:c03bb24d2439e45cce6cb9",
+        "android_client_info": {
+          "package_name": "com.digitalgrub.vanavil"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhgau4qqCekuFkdXuNdCSrG6ccXdQpqnw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:507848086716:android:a884955f11b1e02bce6cb9",
+        "android_client_info": {
+          "package_name": "com.example.child_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhgau4qqCekuFkdXuNdCSrG6ccXdQpqnw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

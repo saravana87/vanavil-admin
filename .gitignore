@@ -1,7 +1,9 @@
 # Repository publishing policy
 
-# Exclude the child mobile app from the GitHub repo
-apps/child_app/
+# Child app is now tracked in Git. Keep only local signing secrets out.
+apps/child_app/android/key.properties
+apps/child_app/android/**/*.keystore
+apps/child_app/android/**/*.jks
 functions/
 
 # Secrets and local credentials
